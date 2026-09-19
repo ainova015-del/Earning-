@@ -1,0 +1,62 @@
+name: Build EarnX APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract EarnX project
+        run: |
+          unzip -o EarnX-AndroidIDE-ready.zip -d earnx_project
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: earnx_project/EarnX_cap/package.json
+
+      - name: Install dependencies
+        working-directory: earnx_project/EarnX_cap
+        run: |
+          npm install
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Prepare Android project
+        working-directory: earnx_project/EarnX_cap
+        run: |
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+
+      - name: Build APK
+        working-directory: earnx_project/EarnX_cap/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Find APK
+        run: |
+          find earnx_project -type f -name "*.apk" -print
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: EarnX-APK
+          path: |
+            earnx_project/EarnX_cap/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
